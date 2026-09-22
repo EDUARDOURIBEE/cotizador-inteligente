@@ -2,32 +2,15 @@ import React, { forwardRef } from "react";
 
 const wholeMoney = (value) => `$${Math.round(Number(value) || 0).toLocaleString("es-MX")}`;
 
-const CotizacionPDF = forwardRef(function CotizacionPDF({ client, cart, total, dimensions }, ref) {
+const CotizacionPDF = forwardRef(function CotizacionPDF({ client, cart, subtotal, iva, total, dimensions }, ref) {
   const today = new Date().toLocaleDateString("es-MX").split("/");
 
   return (
     <section className="print-note cotizacion" ref={ref} aria-label="Cotización en formato de nota">
-      <img src="/nota-generada.svg" alt="Nota de cotización de Aceros y Lámina Americana" />
-      <img className="note-logo" src="/logo.jpeg" alt="Logotipo oficial" />
-      <div className="note-folio campo">{String(Date.now()).slice(-3)}</div>
-      <div className="note-date campo"><span>{today[0]}</span><span>{today[1]}</span><span>{today[2]}</span></div>
-      <div className="note-client note-name campo">{client.name}</div>
-      <div className="note-client note-address campo">{client.address || "No indicada"}</div>
-      <div className="note-client note-phone campo">{client.phone}</div>
-      <div className="note-measures campo">{client.width} m x {client.length} m | {dimensions.sheets} láminas</div>
-      <div className="note-items campo">
-        {cart.slice(0, 7).map((item) => (
-          <div className="note-item" key={item.id}>
-            <span>{item.quantity}</span>
-            <span>{item.name}{item.displayUnit ? ` - ${item.displayUnit}` : ""}</span>
-            <span>{wholeMoney(item.price)}</span>
-            <span>{wholeMoney(item.price * item.quantity)}</span>
-          </div>
-        ))}
-        {cart.length > 7 && <div className="note-item"><span /><span>+ {cart.length - 7} materiales más</span><span /><span /></div>}
-      </div>
-      <div className="note-observations campo">{client.observations}</div>
-      <div className="note-total campo">{wholeMoney(total)}</div>
+      <header className="pdf-header encabezado"><img src="/logo.jpeg" alt="Logotipo oficial" /><div><h1>Aceros y Lámina Americana</h1><p>Su satisfacción es nuestro negocio</p></div><div className="pdf-contact"><span>Teléfono</span><strong>618 218 7056</strong></div></header>
+      <div className="pdf-meta"><div><strong>CLIENTE:</strong><span>{client.name || "No indicado"}</span></div><div><strong>DOMICILIO:</strong><span>{client.address || "No indicado"}</span></div><div><strong>TELÉFONO:</strong><span>{client.phone || "No indicado"}</span></div><div><strong>MEDIDAS:</strong><span>{client.width || "-"} m x {client.length || "-"} m ({dimensions.sheets || 0} láminas)</span></div><div><strong>FOLIO:</strong><span>{String(Date.now()).slice(-3)}</span></div><div><strong>FECHA:</strong><span>{today.join("/")}</span></div></div>
+      <table className="tabla-materiales"><thead><tr><th>Material</th><th>Medida / Calibre</th><th>Cantidad</th><th>Precio unitario</th><th>Subtotal</th></tr></thead><tbody>{cart.length ? cart.slice(0, 12).map((item) => <tr key={item.id}><td>{item.name}</td><td>{item.displayUnit || item.unit}</td><td>{item.quantity}</td><td>{wholeMoney(item.price)}</td><td>{wholeMoney(item.price * item.quantity)}</td></tr>) : <tr><td colSpan="5">No hay materiales seleccionados</td></tr>}{cart.length > 12 && <tr><td colSpan="5">+ {cart.length - 12} materiales más</td></tr>}</tbody></table>
+      <section className="pdf-observations"><strong>OBSERVACIONES</strong><p>{client.observations || "Sin observaciones"}</p></section><section className="pdf-totals total"><div><span>Subtotal</span><strong>{wholeMoney(subtotal)}</strong></div><div><span>IVA (16%)</span><strong>{wholeMoney(iva)}</strong></div><div className="pdf-grand-total"><span>Total</span><strong>{wholeMoney(total)}</strong></div></section><footer className="pdf-footer">Gracias por su preferencia</footer>
     </section>
   );
 });

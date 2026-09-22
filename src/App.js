@@ -4,6 +4,7 @@ import "./App.css";
 import CotizacionPDF from "./CotizacionPDF";
 
 const WHATSAPP_NUMBER = "5216182187056";
+const IVA_RATE = 0.16;
 const materials = [
   { id: "color-26", name: "LÁMINA COLOR 26", price: 68, unit: "/ft" },
   { id: "color-28", name: "LÁMINA COLOR 28", price: 61, unit: "/ft" },
@@ -61,7 +62,8 @@ function CotizacionProvider({ children }) {
   };
   const removeMaterial = (id) => setCart((current) => current.filter((item) => item.id !== id));
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const total = subtotal;
+  const iva = subtotal * IVA_RATE;
+  const total = subtotal + iva;
   const dimensions = useMemo(() => {
     const width = Number(client.width) || 0;
     const length = Number(client.length) || 0;
@@ -69,7 +71,7 @@ function CotizacionProvider({ children }) {
     const columns = Math.ceil(length / 8);
     return { rows, columns, sheets: width && length ? rows * columns : 0 };
   }, [client.width, client.length]);
-  return <CotizacionContext.Provider value={{ client, updateClient, cart, addMaterial, removeMaterial, subtotal, total, dimensions }}>{children}</CotizacionContext.Provider>;
+  return <CotizacionContext.Provider value={{ client, updateClient, cart, addMaterial, removeMaterial, subtotal, iva, total, dimensions }}>{children}</CotizacionContext.Provider>;
 }
 
 function FormularioCliente() {
@@ -104,7 +106,7 @@ function CalculadoraLaminas() {
 }
 
 function ResumenCotizacion({ onPrint }) {
-  const { client, cart, removeMaterial, total, dimensions } = useContext(CotizacionContext);
+  const { client, cart, removeMaterial, subtotal, iva, total, dimensions } = useContext(CotizacionContext);
   const sendWhatsApp = (event) => {
     event.preventDefault();
     if (!client.name || !client.phone || !client.width || !client.length || Number(client.length) > 8 || cart.length === 0) return;
@@ -112,15 +114,15 @@ function ResumenCotizacion({ onPrint }) {
     const message = `Cotización de ${client.name}\nTeléfono: ${client.phone}\nDirección: ${client.address || "No indicada"}\nAncho x Largo: ${client.width}m x ${client.length}m\nTotal láminas necesarias: ${dimensions.sheets}\nDetalle de materiales:\n${detail}\nTotal: ${money(total)}\nObservaciones: ${client.observations || "Ninguna"}\nEnviar para confirmar pedido.`;
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
   };
-  return <section className="panel summary-panel"><div className="section-heading"><span className="step">03</span><div><p className="eyebrow">Vista previa</p><h2>Resumen de cotización</h2></div></div>{cart.length === 0 ? <div className="empty-cart">Tu cotización aparecerá aquí al agregar materiales.</div> : <div className="cart-list">{cart.map((item) => <div className="cart-item" key={item.id}><div><strong>{item.name}</strong><span>{item.quantity} x {money(item.price)} {item.displayUnit || item.unit}</span></div><b>{money(item.price * item.quantity)}</b><button type="button" aria-label={`Quitar ${item.name}`} onClick={() => removeMaterial(item.id)}>×</button></div>)}</div>}<div className="totals"><div className="total"><span>Total final</span><strong>{money(total)}</strong></div></div><div className="summary-actions"><button className="button button-outline" type="button" onClick={onPrint}>▣ Imprimir / Descargar PDF</button><button className="button button-whatsapp" type="button" onClick={sendWhatsApp}>↗ Confirmar por WhatsApp</button></div><p className="whatsapp-note">Se abrirá el diálogo para imprimir o guardar la cotización como PDF.</p></section>;
+  return <section className="panel summary-panel"><div className="section-heading"><span className="step">03</span><div><p className="eyebrow">Vista previa</p><h2>Resumen de cotización</h2></div></div>{cart.length === 0 ? <div className="empty-cart">Tu cotización aparecerá aquí al agregar materiales.</div> : <div className="cart-list">{cart.map((item) => <div className="cart-item" key={item.id}><div><strong>{item.name}</strong><span>{item.quantity} x {money(item.price)} {item.displayUnit || item.unit}</span></div><b>{money(item.price * item.quantity)}</b><button type="button" aria-label={`Quitar ${item.name}`} onClick={() => removeMaterial(item.id)}>×</button></div>)}</div>}<div className="totals"><div><span>Subtotal</span><b>{money(subtotal)}</b></div><div><span>IVA (16%)</span><b>{money(iva)}</b></div><div className="total"><span>Total final</span><strong>{money(total)}</strong></div></div><div className="summary-actions"><button className="button button-outline" type="button" onClick={onPrint}>▣ Imprimir / Descargar PDF</button><button className="button button-whatsapp" type="button" onClick={sendWhatsApp}>↗ Confirmar por WhatsApp</button></div><p className="whatsapp-note">Se abrirá el diálogo para imprimir o guardar la cotización como PDF.</p></section>;
 }
 
 function CotizacionPage() {
-  const { client, cart, total, dimensions } = useContext(CotizacionContext);
+  const { client, cart, subtotal, iva, total, dimensions } = useContext(CotizacionContext);
   const componentRef = useRef(null);
   const print = useReactToPrint({ contentRef: componentRef, documentTitle: `Cotizacion-${client.name || "cliente"}` });
 
-  return <><main className="app-shell"><header className="topbar"><div className="brand-mark">AA</div><div><p className="brand-name">Aceros y Lámina Americana</p><span className="brand-caption">Soluciones que construyen</span></div><div className="header-contact"><span>Atención directa</span><strong>618 218 7056</strong></div></header><section className="hero"><div><p className="eyebrow">Cotizador inteligente <span className="live-dot"></span></p><h1>Construye con precisión.</h1><p>Calcula tus materiales, conoce el precio exacto y recibe atención personalizada.</p></div><div className="hero-badge"><span>01</span><small>Define tus<br />medidas</small></div></section><div className="layout"><div className="main-column"><FormularioCliente /><CalculadoraLaminas /><SelectorMateriales /></div><aside><ResumenCotizacion onPrint={print} /></aside></div><footer>ACEROS Y LÁMINA AMERICANA <span>·</span> Durango, México</footer></main><CotizacionPDF ref={componentRef} client={client} cart={cart} total={total} dimensions={dimensions} /></>;
+  return <><main className="app-shell"><header className="topbar"><div className="brand-mark">AA</div><div><p className="brand-name">Aceros y Lámina Americana</p><span className="brand-caption">Soluciones que construyen</span></div><div className="header-contact"><span>Atención directa</span><strong>618 218 7056</strong></div></header><section className="hero"><div><p className="eyebrow">Cotizador inteligente <span className="live-dot"></span></p><h1>Construye con precisión.</h1><p>Calcula tus materiales, conoce el precio exacto y recibe atención personalizada.</p></div><div className="hero-badge"><span>01</span><small>Define tus<br />medidas</small></div></section><div className="layout"><div className="main-column"><FormularioCliente /><CalculadoraLaminas /><SelectorMateriales /></div><aside><ResumenCotizacion onPrint={print} /></aside></div><footer>ACEROS Y LÁMINA AMERICANA <span>·</span> Durango, México</footer></main><CotizacionPDF ref={componentRef} client={client} cart={cart} subtotal={subtotal} iva={iva} total={total} dimensions={dimensions} /></>;
 }
 
 function App() {
