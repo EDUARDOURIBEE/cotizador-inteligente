@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useMemo, useRef, useState } from "react";
+import { useReactToPrint } from "react-to-print";
 import "./App.css";
+import CotizacionPDF from "./CotizacionPDF";
 
 const WHATSAPP_NUMBER = "5216182187056";
 const materials = [
@@ -44,7 +46,6 @@ const materials = [
 
 const CotizacionContext = createContext(null);
 const money = (value) => `$${Number(value || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
-const wholeMoney = (value) => `$${Math.round(Number(value) || 0).toLocaleString("es-MX")}`;
 
 function CotizacionProvider({ children }) {
   const [client, setClient] = useState({ name: "", phone: "", address: "", width: "", length: "", observations: "" });
@@ -102,7 +103,7 @@ function CalculadoraLaminas() {
   return <section className="sheet-calculator"><div><p className="eyebrow">Cálculo automático</p><h2>Material de cubierta</h2><p>Usamos láminas de 92 cm de ancho por hasta 8 m de largo.</p></div><div className="calculation"><div><strong>{dimensions.sheets || "--"}</strong><span>láminas necesarias</span></div><div><strong>{dimensions.rows || "--"}</strong><span>por fila</span></div><div><strong>{dimensions.columns || "--"}</strong><span>fila{dimensions.columns === 1 ? "" : "s"}</span></div></div>{client.width && client.length > 8 && <p className="error-text">El largo máximo permitido es de 8 m.</p>}</section>;
 }
 
-function ResumenCotizacion() {
+function ResumenCotizacion({ onPrint }) {
   const { client, cart, removeMaterial, total, dimensions } = useContext(CotizacionContext);
   const sendWhatsApp = (event) => {
     event.preventDefault();
@@ -111,17 +112,19 @@ function ResumenCotizacion() {
     const message = `Cotización de ${client.name}\nTeléfono: ${client.phone}\nDirección: ${client.address || "No indicada"}\nAncho x Largo: ${client.width}m x ${client.length}m\nTotal láminas necesarias: ${dimensions.sheets}\nDetalle de materiales:\n${detail}\nTotal: ${money(total)}\nObservaciones: ${client.observations || "Ninguna"}\nEnviar para confirmar pedido.`;
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
   };
-  return <section className="panel summary-panel"><div className="section-heading"><span className="step">03</span><div><p className="eyebrow">Vista previa</p><h2>Resumen de cotización</h2></div></div>{cart.length === 0 ? <div className="empty-cart">Tu cotización aparecerá aquí al agregar materiales.</div> : <div className="cart-list">{cart.map((item) => <div className="cart-item" key={item.id}><div><strong>{item.name}</strong><span>{item.quantity} x {money(item.price)} {item.displayUnit || item.unit}</span></div><b>{money(item.price * item.quantity)}</b><button type="button" aria-label={`Quitar ${item.name}`} onClick={() => removeMaterial(item.id)}>×</button></div>)}</div>}<div className="totals"><div className="total"><span>Total final</span><strong>{money(total)}</strong></div></div><div className="summary-actions"><button className="button button-outline" type="button" onClick={() => window.print()}>▣ Imprimir / PDF</button><button className="button button-whatsapp" type="button" onClick={sendWhatsApp}>↗ Confirmar por WhatsApp</button></div><p className="whatsapp-note">Al confirmar se abrirá WhatsApp con el detalle completo del pedido.</p></section>;
+  return <section className="panel summary-panel"><div className="section-heading"><span className="step">03</span><div><p className="eyebrow">Vista previa</p><h2>Resumen de cotización</h2></div></div>{cart.length === 0 ? <div className="empty-cart">Tu cotización aparecerá aquí al agregar materiales.</div> : <div className="cart-list">{cart.map((item) => <div className="cart-item" key={item.id}><div><strong>{item.name}</strong><span>{item.quantity} x {money(item.price)} {item.displayUnit || item.unit}</span></div><b>{money(item.price * item.quantity)}</b><button type="button" aria-label={`Quitar ${item.name}`} onClick={() => removeMaterial(item.id)}>×</button></div>)}</div>}<div className="totals"><div className="total"><span>Total final</span><strong>{money(total)}</strong></div></div><div className="summary-actions"><button className="button button-outline" type="button" onClick={onPrint}>▣ Imprimir / Descargar PDF</button><button className="button button-whatsapp" type="button" onClick={sendWhatsApp}>↗ Confirmar por WhatsApp</button></div><p className="whatsapp-note">Se abrirá el diálogo para imprimir o guardar la cotización como PDF.</p></section>;
 }
 
-function NotaCotizacion() {
+function CotizacionPage() {
   const { client, cart, total, dimensions } = useContext(CotizacionContext);
-  const today = new Date().toLocaleDateString("es-MX").split("/");
-  return <section className="print-note" aria-label="Cotización en formato de nota"><img src="/nota-generada.svg" alt="Nota de cotización de Aceros y Lámina Americana" /><div className="note-folio">{String(Date.now()).slice(-3)}</div><div className="note-date"><span>{today[0]}</span><span>{today[1]}</span><span>{today[2]}</span></div><div className="note-client note-name">{client.name}</div><div className="note-client note-address">{client.address || "No indicada"}</div><div className="note-client note-phone">{client.phone}</div><div className="note-measures">{client.width} m x {client.length} m | {dimensions.sheets} láminas</div><div className="note-items">{cart.slice(0, 7).map((item) => <div className="note-item" key={item.id}><span>{item.quantity}</span><span>{item.name}{item.displayUnit ? ` - ${item.displayUnit}` : ""}</span><span>{wholeMoney(item.price)}</span><span>{wholeMoney(item.price * item.quantity)}</span></div>)}{cart.length > 7 && <div className="note-item"><span></span><span>+ {cart.length - 7} materiales más</span><span></span><span></span></div>}</div><div className="note-observations">{client.observations}</div><div className="note-total">{wholeMoney(total)}</div></section>;
+  const componentRef = useRef(null);
+  const print = useReactToPrint({ contentRef: componentRef, documentTitle: `Cotizacion-${client.name || "cliente"}` });
+
+  return <><main className="app-shell"><header className="topbar"><div className="brand-mark">AA</div><div><p className="brand-name">Aceros y Lámina Americana</p><span className="brand-caption">Soluciones que construyen</span></div><div className="header-contact"><span>Atención directa</span><strong>618 218 7056</strong></div></header><section className="hero"><div><p className="eyebrow">Cotizador inteligente <span className="live-dot"></span></p><h1>Construye con precisión.</h1><p>Calcula tus materiales, conoce el precio exacto y recibe atención personalizada.</p></div><div className="hero-badge"><span>01</span><small>Define tus<br />medidas</small></div></section><div className="layout"><div className="main-column"><FormularioCliente /><CalculadoraLaminas /><SelectorMateriales /></div><aside><ResumenCotizacion onPrint={print} /></aside></div><footer>ACEROS Y LÁMINA AMERICANA <span>·</span> Durango, México</footer></main><CotizacionPDF ref={componentRef} client={client} cart={cart} total={total} dimensions={dimensions} /></>;
 }
 
 function App() {
-  return <CotizacionProvider><main className="app-shell"><header className="topbar"><div className="brand-mark">AA</div><div><p className="brand-name">Aceros y Lámina Americana</p><span className="brand-caption">Soluciones que construyen</span></div><div className="header-contact"><span>Atención directa</span><strong>618 218 7056</strong></div></header><section className="hero"><div><p className="eyebrow">Cotizador inteligente <span className="live-dot"></span></p><h1>Construye con precisión.</h1><p>Calcula tus materiales, conoce el precio exacto y recibe atención personalizada.</p></div><div className="hero-badge"><span>01</span><small>Define tus<br />medidas</small></div></section><div className="layout"><div className="main-column"><FormularioCliente /><CalculadoraLaminas /><SelectorMateriales /></div><aside><ResumenCotizacion /></aside></div><footer>ACEROS Y LÁMINA AMERICANA <span>·</span> Durango, México</footer></main><NotaCotizacion /></CotizacionProvider>;
+  return <CotizacionProvider><CotizacionPage /></CotizacionProvider>;
 }
 
 export default App;
