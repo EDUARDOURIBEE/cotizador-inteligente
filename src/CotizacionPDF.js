@@ -8,6 +8,7 @@ const CotizacionPDF = forwardRef(function CotizacionPDF({ client, cart, total, d
   return (
     <section className="print-note cotizacion" ref={ref} aria-label="Cotización en formato de nota">
       <img src="/nota-generada.svg" alt="Nota de cotización de Aceros y Lámina Americana" />
+      <img className="note-logo" src="/logo.jpeg" alt="Logotipo oficial" />
       <div className="note-folio campo">{String(Date.now()).slice(-3)}</div>
       <div className="note-date campo"><span>{today[0]}</span><span>{today[1]}</span><span>{today[2]}</span></div>
       <div className="note-client note-name campo">{client.name}</div>
