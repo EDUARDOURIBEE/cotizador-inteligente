@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1200" viewBox="0 0 900 1200">
+  <rect width="900" height="1200" fill="#fffdf7"/>
+  <rect x="24" y="24" width="852" height="1152" fill="none" stroke="#202020" stroke-width="3"/>
+  <rect x="45" y="45" width="810" height="112" fill="#17324d"/>
+  <text x="72" y="87" fill="#f28a3e" font-family="Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="3">ACEROS Y LÁMINA</text>
+  <text x="72" y="122" fill="#ffffff" font-family="Georgia, serif" font-size="31" font-weight="700">AMERICANA</text>
+  <text x="690" y="82" fill="#ffffff" font-family="Arial, sans-serif" font-size="15" text-anchor="middle">NOTA</text>
+  <text x="690" y="112" fill="#f28a3e" font-family="Arial, sans-serif" font-size="25" font-weight="700" text-anchor="middle">COTIZACIÓN</text>
+  <text x="60" y="195" fill="#333" font-family="Arial, sans-serif" font-size="14" font-weight="700">FOLIO:</text>
+  <line x1="120" y1="198" x2="260" y2="198" stroke="#444" stroke-width="1"/>
+  <text x="565" y="195" fill="#333" font-family="Arial, sans-serif" font-size="14" font-weight="700">FECHA:</text>
+  <line x1="625" y1="198" x2="820" y2="198" stroke="#444" stroke-width="1"/>
+  <rect x="55" y="225" width="790" height="150" fill="none" stroke="#444" stroke-width="2"/>
+  <line x1="55" y1="275" x2="845" y2="275" stroke="#888"/>
+  <line x1="55" y1="325" x2="845" y2="325" stroke="#888"/>
+  <text x="72" y="257" fill="#17324d" font-family="Arial, sans-serif" font-size="14" font-weight="700">CLIENTE:</text>
+  <text x="72" y="307" fill="#17324d" font-family="Arial, sans-serif" font-size="14" font-weight="700">DOMICILIO:</text>
+  <text x="72" y="357" fill="#17324d" font-family="Arial, sans-serif" font-size="14" font-weight="700">TELÉFONO:</text>
+  <line x1="160" y1="260" x2="820" y2="260" stroke="#aaa"/>
+  <line x1="170" y1="310" x2="820" y2="310" stroke="#aaa"/>
+  <line x1="160" y1="360" x2="430" y2="360" stroke="#aaa"/>
+  <text x="565" y="357" fill="#17324d" font-family="Arial, sans-serif" font-size="14" font-weight="700">MEDIDAS:</text>
+  <line x1="640" y1="360" x2="820" y2="360" stroke="#aaa"/>
+  <rect x="55" y="405" width="790" height="58" fill="#17324d"/>
+  <text x="72" y="441" fill="#ffffff" font-family="Arial, sans-serif" font-size="14" font-weight="700">CANT.</text>
+  <text x="150" y="441" fill="#ffffff" font-family="Arial, sans-serif" font-size="14" font-weight="700">DESCRIPCIÓN DEL MATERIAL</text>
+  <text x="695" y="441" fill="#ffffff" font-family="Arial, sans-serif" font-size="14" font-weight="700">P. UNITARIO</text>
+  <text x="790" y="441" fill="#ffffff" font-family="Arial, sans-serif" font-size="14" font-weight="700">IMPORTE</text>
+  <rect x="55" y="463" width="790" height="475" fill="#fff" stroke="#444" stroke-width="2"/>
+  <line x1="130" y1="405" x2="130" y2="938" stroke="#888"/>
+  <line x1="665" y1="405" x2="665" y2="938" stroke="#888"/>
+  <line x1="755" y1="405" x2="755" y2="938" stroke="#888"/>
+  <path d="M55 530 H845 M55 597 H845 M55 664 H845 M55 731 H845 M55 798 H845 M55 865 H845" stroke="#d0d0d0"/>
+  <text x="72" y="985" fill="#17324d" font-family="Arial, sans-serif" font-size="14" font-weight="700">OBSERVACIONES:</text>
+  <line x1="190" y1="985" x2="820" y2="985" stroke="#aaa"/>
+  <line x1="55" y1="1015" x2="820" y2="1015" stroke="#aaa"/>
+  <rect x="560" y="1040" width="285" height="82" fill="#f2eee6" stroke="#17324d" stroke-width="2"/>
+  <text x="580" y="1073" fill="#17324d" font-family="Arial, sans-serif" font-size="17" font-weight="700">TOTAL</text>
+  <line x1="580" y1="1085" x2="825" y2="1085" stroke="#ed6c2e" stroke-width="2"/>
+  <text x="580" y="1108" fill="#ed6c2e" font-family="Georgia, serif" font-size="27" font-weight="700">$</text>
+  <text x="60" y="1148" fill="#17324d" font-family="Arial, sans-serif" font-size="13">Gracias por su preferencia</text>
+  <text x="840" y="1148" fill="#17324d" font-family="Arial, sans-serif" font-size="13" text-anchor="end">618 218 7056</text>
+</svg>
