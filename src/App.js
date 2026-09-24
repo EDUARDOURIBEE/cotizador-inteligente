@@ -64,19 +64,21 @@ function CotizacionProvider({ children }) {
     const width = Number(client.width) || 0;
     const length = Number(client.length) || 0;
     const waters = Number(client.waters) || 0;
-    const sheetsPerRow = Math.ceil((width * 100) / 92);
-    const rowsPerColumn = Math.ceil(length / 8);
-    const baseSheets = width && length ? sheetsPerRow * rowsPerColumn : 0;
-    const sheets = baseSheets * waters;
+    const area = width * length;
+    const sheetLength = Math.min(3.1, 8);
+    const areaPerWater = waters ? area / waters : 0;
+    const sheetsPerWater = areaPerWater ? Math.ceil(areaPerWater / (0.92 * sheetLength)) : 0;
+    const baseSheets = sheetsPerWater * waters;
+    const sheets = baseSheets ? baseSheets + 1 : 0;
     const polines = waters ? Math.ceil(length / 1.5) * waters : 0;
     const ptr = waters ? Math.ceil(width / 2) * waters : 0;
     const channels = waters ? waters * 2 : 0;
     const screws = sheets * 12;
-    return { width, length, waters, sheetsPerRow, rowsPerColumn, baseSheets, sheets, polines, ptr, channels, screws };
+    return { width, length, waters, area, sheetLength, areaPerWater, sheetsPerWater, baseSheets, sheets, polines, ptr, channels, screws };
   }, [client.width, client.length, client.waters]);
   const recommendations = useMemo(() => {
     if (!dimensions.sheets) return [];
-    const sheetFeet = Math.min(dimensions.length, 8) * 3.28084;
+    const sheetFeet = dimensions.sheetLength * 3.28084;
     const sheetPrice = 68 * sheetFeet;
     const ridgePrice = 55 * dimensions.width * 3.28084;
     const channelPrice = 55 * 3.28084;
@@ -84,19 +86,18 @@ function CotizacionProvider({ children }) {
     const ptrPrice = 660;
     const screwPrice = 4;
     return [
-      { id: "recommended-sheets", name: "LÁMINA COLOR 26", quantity: dimensions.sheets, measure: `${Math.min(dimensions.length, 8).toFixed(2)} m`, price: sheetPrice, unit: "pieza" },
+      { id: "recommended-sheets", name: "LÁMINA COLOR 26", quantity: dimensions.sheets, measure: `${dimensions.sheetLength.toFixed(2)} m`, price: sheetPrice, unit: "pieza", category: "lamina" },
       { id: "recommended-ridges", name: "CABALLETE COLOR", quantity: dimensions.waters, measure: `${dimensions.width.toFixed(2)} m`, price: ridgePrice, unit: "pieza" },
-      { id: "recommended-polines", name: "POLÍN 4 x 2 C.14", quantity: dimensions.polines, measure: dimensions.length <= 3 ? "3 m" : "6 m", price: polinPrice, unit: "pieza" },
-      { id: "recommended-ptr", name: "PTR 2 x 2 C.14", quantity: dimensions.ptr, measure: dimensions.width <= 2 ? "2 m" : "4 m", price: ptrPrice, unit: "pieza" },
+      { id: "recommended-polines", name: "POLÍN 4 x 2 C.14", quantity: dimensions.polines, measure: "6 m", price: polinPrice, unit: "pieza", category: "polin" },
+      { id: "recommended-ptr", name: "PTR 2 x 2 C.14", quantity: dimensions.ptr, measure: "6 m", price: ptrPrice, unit: "pieza", category: "ptr" },
       { id: "recommended-channels", name: "CANAL COLOR", quantity: dimensions.channels, measure: "3 m", price: channelPrice, unit: "pieza" },
       { id: "recommended-screws", name: "PIJAS VARIAS", quantity: dimensions.screws, measure: "3/4 a 3 in", price: screwPrice, unit: "pieza" },
     ];
   }, [dimensions]);
-  const recommendedSubtotal = recommendations.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const manualSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const subtotal = manualSubtotal + recommendedSubtotal;
+  const subtotal = manualSubtotal;
   const total = subtotal;
-  return <CotizacionContext.Provider value={{ client, updateClient, cart, addMaterial, removeMaterial, subtotal, recommendedSubtotal, recommendations, total, dimensions }}>{children}</CotizacionContext.Provider>;
+  return <CotizacionContext.Provider value={{ client, updateClient, cart, addMaterial, removeMaterial, subtotal, recommendations, total, dimensions }}>{children}</CotizacionContext.Provider>;
 }
 
 function FormularioCliente() {
@@ -127,29 +128,48 @@ function SelectorMateriales() {
 }
 
 function CalculadoraLaminas() {
-  const { client, dimensions, recommendations } = useContext(CotizacionContext);
-  return <section className="sheet-calculator"><div><p className="eyebrow">Cálculo automático</p><h2>Materiales recomendados</h2><p>Calculado para {dimensions.waters || "--"} aguas, con láminas de hasta 8 m.</p></div><div className="calculation"><div><strong>{dimensions.sheets || "--"}</strong><span>láminas</span></div><div><strong>{dimensions.polines || "--"}</strong><span>polines</span></div><div><strong>{dimensions.ptr || "--"}</strong><span>PTR</span></div></div>{client.width && client.length > 8 && <p className="error-text">El largo máximo permitido es de 8 m.</p>}<div className="recommendation-table-wrap"><table className="recommendation-table"><thead><tr><th>Material</th><th>Cantidad</th><th>Medida sugerida</th><th>Precio unitario</th><th>Subtotal</th></tr></thead><tbody>{recommendations.length ? recommendations.map((item) => <tr key={item.id}><td>{item.name}</td><td>{item.quantity}</td><td>{item.measure}</td><td>{money(item.price)}</td><td>{money(item.price * item.quantity)}</td></tr>) : <tr><td colSpan="5">Ingresa ancho, largo y número de aguas para calcular.</td></tr>}</tbody></table></div></section>;
+  const { client, dimensions, recommendations, addMaterial } = useContext(CotizacionContext);
+  const [edits, setEdits] = useState({});
+  const getEdit = (item) => edits[item.id] || { name: item.name, quantity: item.quantity, measure: item.measure, materialId: item.id };
+  const updateEdit = (item, field, value) => setEdits((current) => ({ ...current, [item.id]: { ...getEdit(item), [field]: value } }));
+  const optionsFor = (item) => {
+    if (item.category === "polin") return materials.filter((material) => material.id.includes("polin"));
+    if (item.category === "ptr") return materials.filter((material) => material.id.includes("ptr"));
+    if (item.category === "lamina") return materials.filter((material) => material.unit === "/ft");
+    if (item.name.includes("CANAL")) return materials.filter((material) => material.name.includes("CANAL") && material.unit === "/ft");
+    if (item.name.includes("CABALLETE")) return materials.filter((material) => material.name.includes("CABALLETE") && material.unit === "/ft");
+    return materials.filter((material) => material.id === "pijas");
+  };
+  const confirmRecommendation = (item) => {
+    const edit = getEdit(item);
+    const selectedMaterial = materials.find((material) => material.id === edit.materialId) || item;
+    const quantity = Math.max(1, Number(edit.quantity) || 1);
+    const measure = edit.measure || item.measure;
+    const numericMeasure = Number.parseFloat(measure) || 0;
+    const price = selectedMaterial.unit === "/ft" ? selectedMaterial.price * numericMeasure * 3.28084 : selectedMaterial.price;
+    addMaterial({ ...selectedMaterial, id: `recommended-${item.id}-${Date.now()}`, price, displayUnit: measure, basePrice: selectedMaterial.price }, quantity);
+  };
+  return <section className="sheet-calculator"><div><p className="eyebrow">Cálculo automático</p><h2>Materiales recomendados</h2><p>Calculado por área para {dimensions.waters || "--"} aguas. Revisa y confirma cada material.</p></div><div className="calculation"><div><strong>{dimensions.sheets || "--"}</strong><span>láminas</span></div><div><strong>{dimensions.polines || "--"}</strong><span>polines</span></div><div><strong>{dimensions.ptr || "--"}</strong><span>PTR</span></div></div>{client.width && client.length > 8 && <p className="error-text">El largo máximo permitido es de 8 m.</p>}<div className="recommendation-table-wrap"><table className="recommendation-table"><thead><tr><th>Material</th><th>Cantidad</th><th>Medida sugerida</th><th>Precio unitario</th><th>Subtotal</th><th>Acción</th></tr></thead><tbody>{recommendations.length ? recommendations.map((item) => { const edit = getEdit(item); const selectedMaterial = materials.find((material) => material.id === edit.materialId) || item; const price = selectedMaterial.unit === "/ft" ? selectedMaterial.price * (Number.parseFloat(edit.measure) || 0) * 3.28084 : selectedMaterial.price; return <tr key={item.id}><td><select value={edit.materialId} onChange={(e) => updateEdit(item, "materialId", e.target.value)}>{optionsFor(item).map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select></td><td><input className="recommendation-input" type="number" min="1" value={edit.quantity} onChange={(e) => updateEdit(item, "quantity", e.target.value)} /></td><td><input className="recommendation-input" type="text" value={edit.measure} onChange={(e) => updateEdit(item, "measure", e.target.value)} /></td><td>{money(price)}</td><td>{money(price * (Number(edit.quantity) || 0))}</td><td><button className="button button-orange recommendation-button" type="button" onClick={() => confirmRecommendation(item)}>Agregar a cotización</button></td></tr>; }) : <tr><td colSpan="6">Ingresa ancho, largo y número de aguas para calcular.</td></tr>}</tbody></table></div></section>;
 }
 
 function ResumenCotizacion({ onPrint }) {
-  const { client, cart, removeMaterial, recommendations, total, dimensions } = useContext(CotizacionContext);
+  const { client, cart, removeMaterial, total, dimensions } = useContext(CotizacionContext);
   const sendWhatsApp = (event) => {
     event.preventDefault();
     if (!client.name || !client.phone || !client.width || !client.length || Number(client.length) > 8 || cart.length === 0) return;
     const manualDetail = cart.map((item) => `- ${item.name}${item.displayUnit ? ` (${item.displayUnit})` : ""}: ${item.quantity} x ${money(item.price)} = ${money(item.price * item.quantity)}`);
-    const recommendedDetail = recommendations.map((item) => `- ${item.name} (${item.measure}): ${item.quantity} x ${money(item.price)} = ${money(item.price * item.quantity)}`);
-    const message = `Cotización de ${client.name}\nTeléfono: ${client.phone}\nDirección: ${client.address || "No indicada"}\nAncho x Largo: ${client.width}m x ${client.length}m\nNúmero de aguas: ${client.waters}\nTotal láminas necesarias: ${dimensions.sheets}\nMateriales recomendados:\n${recommendedDetail.join("\n")}\nMateriales adicionales:\n${manualDetail.join("\n") || "Ninguno"}\nTotal: ${money(total)}\nObservaciones: ${client.observations || "Ninguna"}\nEnviar para confirmar pedido.`;
+    const message = `Cotización de ${client.name}\nTeléfono: ${client.phone}\nDirección: ${client.address || "No indicada"}\nAncho x Largo: ${client.width}m x ${client.length}m\nNúmero de aguas: ${client.waters}\nTotal láminas necesarias: ${dimensions.sheets}\nMateriales confirmados:\n${manualDetail.join("\n") || "Ninguno"}\nTotal: ${money(total)}\nObservaciones: ${client.observations || "Ninguna"}\nEnviar para confirmar pedido.`;
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
   };
   return <section className="panel summary-panel"><div className="section-heading"><span className="step">03</span><div><p className="eyebrow">Vista previa</p><h2>Resumen de cotización</h2></div></div><div className="summary-water-info">{dimensions.waters ? `${dimensions.waters} aguas · ${dimensions.sheets} láminas · ${dimensions.screws} pijas` : "Define las medidas para calcular"}</div>{cart.length > 0 && <div className="cart-list">{cart.map((item) => <div className="cart-item" key={item.id}><div><strong>{item.name}</strong><span>{item.quantity} x {money(item.price)} {item.displayUnit || item.unit}</span></div><b>{money(item.price * item.quantity)}</b><button type="button" aria-label={`Quitar ${item.name}`} onClick={() => removeMaterial(item.id)}>×</button></div>)}</div>}<div className="totals"><div className="total"><span>Total materiales</span><strong>{money(total)}</strong></div></div><div className="summary-actions"><button className="button button-outline" type="button" onClick={onPrint}>▣ Imprimir / Descargar PDF</button><button className="button button-whatsapp" type="button" onClick={sendWhatsApp}>↗ Confirmar por WhatsApp</button></div><p className="whatsapp-note">Se abrirá el diálogo para imprimir o guardar la cotización como PDF.</p></section>;
 }
 
 function CotizacionPage() {
-  const { client, cart, recommendations, total, dimensions } = useContext(CotizacionContext);
+  const { client, cart, total, dimensions } = useContext(CotizacionContext);
   const componentRef = useRef(null);
   const print = useReactToPrint({ contentRef: componentRef, documentTitle: `Cotizacion-${client.name || "cliente"}` });
 
-  return <><main className="app-shell"><header className="topbar"><div className="brand-mark">AA</div><div><p className="brand-name">Aceros y Lámina Americana</p><span className="brand-caption">Soluciones que construyen</span></div><div className="header-contact"><span>Atención directa</span><strong>618 218 7056</strong></div></header><section className="hero"><div><p className="eyebrow">Cotizador inteligente <span className="live-dot"></span></p><h1>Construye con precisión.</h1><p>Calcula tus materiales, conoce el precio exacto y recibe atención personalizada.</p></div><div className="hero-badge"><span>01</span><small>Define tus<br />medidas</small></div></section><div className="layout"><div className="main-column"><FormularioCliente /><CalculadoraLaminas /><SelectorMateriales /></div><aside><ResumenCotizacion onPrint={print} /></aside></div><footer>ACEROS Y LÁMINA AMERICANA <span>·</span> Durango, México</footer></main><CotizacionPDF ref={componentRef} client={client} cart={cart} recommendations={recommendations} total={total} dimensions={dimensions} /></>;
+  return <><main className="app-shell"><header className="topbar"><div className="brand-mark">AA</div><div><p className="brand-name">Aceros y Lámina Americana</p><span className="brand-caption">Soluciones que construyen</span></div><div className="header-contact"><span>Atención directa</span><strong>618 218 7056</strong></div></header><section className="hero"><div><p className="eyebrow">Cotizador inteligente <span className="live-dot"></span></p><h1>Construye con precisión.</h1><p>Calcula tus materiales, conoce el precio exacto y recibe atención personalizada.</p></div><div className="hero-badge"><span>01</span><small>Define tus<br />medidas</small></div></section><div className="layout"><div className="main-column"><FormularioCliente /><CalculadoraLaminas /><SelectorMateriales /></div><aside><ResumenCotizacion onPrint={print} /></aside></div><footer>ACEROS Y LÁMINA AMERICANA <span>·</span> Durango, México</footer></main><CotizacionPDF ref={componentRef} client={client} cart={cart} total={total} dimensions={dimensions} /></>;
 }
 
 function App() {
