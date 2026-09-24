@@ -4,6 +4,7 @@ import "./App.css";
 import CotizacionPDF from "./CotizacionPDF";
 
 const WHATSAPP_NUMBER = "5216182187056";
+const STANDARD_SHEET_LENGTHS = [2.44, 3.05, 3.66, 4.27, 4.88, 6.1, 7.32, 8];
 const materials = [
   { id: "color-26", name: "LÁMINA COLOR 26", price: 68, unit: "/ft" },
   { id: "color-28", name: "LÁMINA COLOR 28", price: 61, unit: "/ft" },
@@ -65,16 +66,20 @@ function CotizacionProvider({ children }) {
     const length = Number(client.length) || 0;
     const waters = Number(client.waters) || 0;
     const area = width * length;
-    const sheetLength = Math.min(3.1, 8);
-    const areaPerWater = waters ? area / waters : 0;
-    const sheetsPerWater = areaPerWater ? Math.ceil(areaPerWater / (0.92 * sheetLength)) : 0;
+    // Treat each water as a roof plane: panels cover the length direction and span the width.
+    const horizontalRun = waters === 1 ? width : width / 2;
+    const requiredSheetLength = horizontalRun + 0.2;
+    const sheetLength = STANDARD_SHEET_LENGTHS.find((standardLength) => standardLength >= requiredSheetLength) || 8;
+    const sheetsAcross = length ? Math.ceil(length / 0.92) : 0;
+    const sheetsPerWater = sheetsAcross;
     const baseSheets = sheetsPerWater * waters;
-    const sheets = baseSheets ? baseSheets + 1 : 0;
+    const marginSheets = baseSheets ? Math.ceil(baseSheets * 0.05) : 0;
+    const sheets = baseSheets + marginSheets;
     const polines = waters ? Math.ceil(length / 1.5) * waters : 0;
     const ptr = waters ? Math.ceil(width / 2) * waters : 0;
     const channels = waters ? waters * 2 : 0;
     const screws = sheets * 12;
-    return { width, length, waters, area, sheetLength, areaPerWater, sheetsPerWater, baseSheets, sheets, polines, ptr, channels, screws };
+    return { width, length, waters, area, horizontalRun, requiredSheetLength, sheetLength, sheetsAcross, sheetsPerWater, baseSheets, marginSheets, sheets, polines, ptr, channels, screws };
   }, [client.width, client.length, client.waters]);
   const recommendations = useMemo(() => {
     if (!dimensions.sheets) return [];
@@ -107,7 +112,7 @@ function FormularioCliente() {
     <label>Teléfono<input required type="tel" value={client.phone} onChange={(e) => updateClient("phone", e.target.value)} placeholder="10 dígitos" /></label>
     <label className="wide">Dirección <span>(opcional)</span><input value={client.address} onChange={(e) => updateClient("address", e.target.value)} placeholder="Calle, número y colonia" /></label>
     <label>Ancho (m)<input required type="number" min="0.01" step="0.01" value={client.width} onChange={(e) => updateClient("width", e.target.value)} placeholder="0.00" /></label>
-    <label>Largo (m)<input required type="number" min="0.01" max="8" step="0.01" value={client.length} onChange={(e) => updateClient("length", e.target.value)} placeholder="Máximo 8 m" /></label>
+    <label>Largo (m)<input required type="number" min="0.01" step="0.01" value={client.length} onChange={(e) => updateClient("length", e.target.value)} placeholder="Largo del techo" /></label>
     <label>Número de aguas<select required value={client.waters} onChange={(e) => updateClient("waters", e.target.value)}><option value="">Selecciona</option><option value="1">1 agua</option><option value="2">2 aguas</option><option value="3">3 aguas</option><option value="4">4 aguas</option></select></label>
     <label className="wide">Observaciones <span>(opcional)</span><textarea value={client.observations} onChange={(e) => updateClient("observations", e.target.value)} placeholder="Color, calibre u otro detalle"></textarea></label>
   </div></section>;
@@ -128,7 +133,7 @@ function SelectorMateriales() {
 }
 
 function CalculadoraLaminas() {
-  const { client, dimensions, recommendations, addMaterial } = useContext(CotizacionContext);
+  const { dimensions, recommendations, addMaterial } = useContext(CotizacionContext);
   const [edits, setEdits] = useState({});
   const getEdit = (item) => edits[item.id] || { name: item.name, quantity: item.quantity, measure: item.measure, materialId: item.id };
   const updateEdit = (item, field, value) => setEdits((current) => ({ ...current, [item.id]: { ...getEdit(item), [field]: value } }));
@@ -149,14 +154,14 @@ function CalculadoraLaminas() {
     const price = selectedMaterial.unit === "/ft" ? selectedMaterial.price * numericMeasure * 3.28084 : selectedMaterial.price;
     addMaterial({ ...selectedMaterial, id: `recommended-${item.id}-${Date.now()}`, price, displayUnit: measure, basePrice: selectedMaterial.price }, quantity);
   };
-  return <section className="sheet-calculator"><div><p className="eyebrow">Cálculo automático</p><h2>Materiales recomendados</h2><p>Calculado por área para {dimensions.waters || "--"} aguas. Revisa y confirma cada material.</p></div><div className="calculation"><div><strong>{dimensions.sheets || "--"}</strong><span>láminas</span></div><div><strong>{dimensions.polines || "--"}</strong><span>polines</span></div><div><strong>{dimensions.ptr || "--"}</strong><span>PTR</span></div></div>{client.width && client.length > 8 && <p className="error-text">El largo máximo permitido es de 8 m.</p>}<div className="recommendation-table-wrap"><table className="recommendation-table"><thead><tr><th>Material</th><th>Cantidad</th><th>Medida sugerida</th><th>Precio unitario</th><th>Subtotal</th><th>Acción</th></tr></thead><tbody>{recommendations.length ? recommendations.map((item) => { const edit = getEdit(item); const selectedMaterial = materials.find((material) => material.id === edit.materialId) || item; const price = selectedMaterial.unit === "/ft" ? selectedMaterial.price * (Number.parseFloat(edit.measure) || 0) * 3.28084 : selectedMaterial.price; return <tr key={item.id}><td><select value={edit.materialId} onChange={(e) => updateEdit(item, "materialId", e.target.value)}>{optionsFor(item).map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select></td><td><input className="recommendation-input" type="number" min="1" value={edit.quantity} onChange={(e) => updateEdit(item, "quantity", e.target.value)} /></td><td><input className="recommendation-input" type="text" value={edit.measure} onChange={(e) => updateEdit(item, "measure", e.target.value)} /></td><td>{money(price)}</td><td>{money(price * (Number(edit.quantity) || 0))}</td><td><button className="button button-orange recommendation-button" type="button" onClick={() => confirmRecommendation(item)}>Agregar a cotización</button></td></tr>; }) : <tr><td colSpan="6">Ingresa ancho, largo y número de aguas para calcular.</td></tr>}</tbody></table></div></section>;
+  return <section className="sheet-calculator"><div><p className="eyebrow">Cálculo automático</p><h2>Materiales recomendados</h2><p>Recomendación profesional por planos de techo: lámina de {dimensions.sheetLength ? `${dimensions.sheetLength.toFixed(2)} m` : "--"}, caída requerida {dimensions.requiredSheetLength ? `${dimensions.requiredSheetLength.toFixed(2)} m` : "--"} y 5% de margen.</p></div><div className="calculation"><div><strong>{dimensions.sheets || "--"}</strong><span>láminas</span></div><div><strong>{dimensions.polines || "--"}</strong><span>polines de 6 m</span></div><div><strong>{dimensions.ptr || "--"}</strong><span>PTR de 6 m</span></div></div><div className="recommendation-table-wrap"><table className="recommendation-table"><thead><tr><th>Material</th><th>Cantidad</th><th>Medida sugerida</th><th>Precio unitario</th><th>Subtotal</th><th>Acción</th></tr></thead><tbody>{recommendations.length ? recommendations.map((item) => { const edit = getEdit(item); const selectedMaterial = materials.find((material) => material.id === edit.materialId) || item; const price = selectedMaterial.unit === "/ft" ? selectedMaterial.price * (Number.parseFloat(edit.measure) || 0) * 3.28084 : selectedMaterial.price; return <tr key={item.id}><td><select value={edit.materialId} onChange={(e) => updateEdit(item, "materialId", e.target.value)}>{optionsFor(item).map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select></td><td><input className="recommendation-input" type="number" min="1" value={edit.quantity} onChange={(e) => updateEdit(item, "quantity", e.target.value)} /></td><td><input className="recommendation-input" type="text" value={edit.measure} onChange={(e) => updateEdit(item, "measure", e.target.value)} /></td><td>{money(price)}</td><td>{money(price * (Number(edit.quantity) || 0))}</td><td><button className="button button-orange recommendation-button" type="button" onClick={() => confirmRecommendation(item)}>Agregar a cotización</button></td></tr>; }) : <tr><td colSpan="6">Ingresa ancho, largo y número de aguas para calcular.</td></tr>}</tbody></table></div></section>;
 }
 
 function ResumenCotizacion({ onPrint }) {
   const { client, cart, removeMaterial, total, dimensions } = useContext(CotizacionContext);
   const sendWhatsApp = (event) => {
     event.preventDefault();
-    if (!client.name || !client.phone || !client.width || !client.length || Number(client.length) > 8 || cart.length === 0) return;
+    if (!client.name || !client.phone || !client.width || !client.length || !client.waters || cart.length === 0) return;
     const manualDetail = cart.map((item) => `- ${item.name}${item.displayUnit ? ` (${item.displayUnit})` : ""}: ${item.quantity} x ${money(item.price)} = ${money(item.price * item.quantity)}`);
     const message = `Cotización de ${client.name}\nTeléfono: ${client.phone}\nDirección: ${client.address || "No indicada"}\nAncho x Largo: ${client.width}m x ${client.length}m\nNúmero de aguas: ${client.waters}\nTotal láminas necesarias: ${dimensions.sheets}\nMateriales confirmados:\n${manualDetail.join("\n") || "Ninguno"}\nTotal: ${money(total)}\nObservaciones: ${client.observations || "Ninguna"}\nEnviar para confirmar pedido.`;
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
